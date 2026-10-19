@@ -3,7 +3,8 @@
 A minimal, single-screen Android app (Kotlin, no AndroidX/Compose) to see and hear ultrasound with the phone's microphone.
 
 - **Waterfall** of the upper spectrum (15 kHz → Nyquist), newest at the top. Dashed line = 20 kHz (limit of human hearing).
-- **Detection** readout of the strongest ultrasonic tone (>20 kHz, ≥15 dB above the noise median).
+- **Detection** readout of the strongest ultrasonic tone (>20 kHz, ≥12 dB above nearby bins and above the floor), level in dBFS per FFT bin.
+- **Floor / Range** set the colour scale in dBFS (log magnitude): floor = black, floor + range = full brightness. Persisted, as are shift and volume.
 - **Listen**: plays a pitch-shifted copy to the current media output (e.g. Bluetooth headphones). Every frequency *f* is heard at *f − shift*; the blue line on the waterfall marks what you hear as 0 Hz. Shift and volume are live-adjustable.
 - System light/dark theme (`Theme.DeviceDefault.DayNight`), edge-to-edge.
 

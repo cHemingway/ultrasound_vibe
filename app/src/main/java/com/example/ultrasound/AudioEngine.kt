@@ -29,14 +29,19 @@ class AudioEngine(
     interface Listener {
         /** Called on the audio thread once the microphone is open. */
         fun onStarted(sampleRate: Int)
-        /** Strongest ultrasonic component, or null if nothing stands out. Called on the audio thread. */
-        fun onPeak(freqHz: Float?, snrDb: Float)
+        /**
+         * Strongest ultrasonic component (level in dBFS per FFT bin), or null if nothing stands out
+         * from its neighbouring bins. Called on the audio thread.
+         */
+        fun onPeak(freqHz: Float?, levelDb: Float)
         fun onError(message: String)
     }
 
     @Volatile var shiftHz = 20_000f
     @Volatile var gainDb = 20f
     @Volatile var listening = false
+    /** Peaks quieter than this (dBFS) are not reported, matching the waterfall's black level. */
+    @Volatile var detectFloorDb = -130f
 
     @Volatile private var running = false
     private var thread: Thread? = null
@@ -203,22 +208,28 @@ class AudioEngine(
                 for (b in 0 until bins) {
                     val k = b + firstBin
                     val mag = sqrt(re[k] * re[k] + im[k] * im[k]) / refMag
-                    row[b] = (20.0 * log10(mag + 1e-12)).toFloat()
+                    row[b] = (20.0 * log10(mag + 1e-10)).toFloat()
                 }
                 waterfall.addRow(row)
 
                 // ---- Detection (~6 Hz) ----
                 if (++rowCount % 10 == 0 && ultrasonicStart < bins) {
+                    // Ignore the top few bins: anti-alias filter roll-off makes them noisy.
+                    val end = bins - bins / 50
                     var peakBin = ultrasonicStart
-                    for (b in ultrasonicStart until bins) if (row[b] > row[peakBin]) peakBin = b
-                    val count = bins - ultrasonicStart
-                    System.arraycopy(row, ultrasonicStart, scratch, 0, count)
+                    for (b in ultrasonicStart until end) if (row[b] > row[peakBin]) peakBin = b
+                    // Compare against the local noise (median of nearby bins), not the whole band,
+                    // which may be mostly digital silence on phones that resample from 48 kHz.
+                    val span = (2_000f / binHz).toInt().coerceAtLeast(8)
+                    var count = 0
+                    for (b in max(0, peakBin - span) until min(bins, peakBin + span + 1)) {
+                        if (b < peakBin - 2 || b > peakBin + 2) scratch[count++] = row[b]
+                    }
                     java.util.Arrays.sort(scratch, 0, count)
                     val snr = row[peakBin] - scratch[count / 2]
-                    // Ignore the top few bins: anti-alias filter roll-off makes them noisy.
-                    val usable = peakBin < bins - bins / 50
-                    if (snr > 15f && usable) listener.onPeak((peakBin + firstBin) * binHz, snr)
-                    else listener.onPeak(null, snr)
+                    val level = row[peakBin]
+                    if (snr > 12f && level > detectFloorDb) listener.onPeak((peakBin + firstBin) * binHz, level)
+                    else listener.onPeak(null, level)
                 }
             }
         } catch (e: Exception) {

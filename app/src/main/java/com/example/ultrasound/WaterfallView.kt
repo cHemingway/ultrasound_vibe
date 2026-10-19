@@ -28,7 +28,9 @@ class WaterfallView(context: Context, attrs: AttributeSet?) : View(context, attr
     private var head = 0          // Index of the newest row in the ring.
     private var pendingRows = 0   // Rows written to [pixels] but not yet copied to [bitmap].
     private var bitmap: Bitmap? = null
-    private var floorDb = -100f   // Adaptive noise floor for colour scaling.
+    private var levels = FloatArray(0) // Raw dB values behind [pixels], so the scale can be changed later.
+    private var floorDb = -130f
+    private var rangeDb = 60f
 
     /** Frequency (Hz) that is shifted down to 0 Hz while listening; ≤0 hides the marker. */
     var markerHz = 0f
@@ -67,6 +69,7 @@ class WaterfallView(context: Context, attrs: AttributeSet?) : View(context, attr
             this.minHz = minHz
             this.maxHz = maxHz
             pixels = IntArray(cols * historyRows) { palette[0] }
+            levels = FloatArray(cols * historyRows) { -999f }
             head = 0
             pendingRows = historyRows
             bitmap = Bitmap.createBitmap(cols, historyRows, Bitmap.Config.ARGB_8888)
@@ -74,20 +77,27 @@ class WaterfallView(context: Context, attrs: AttributeSet?) : View(context, attr
         postInvalidate()
     }
 
+    /** Colour scale: [floorDb] dBFS maps to black, [floorDb] + [rangeDb] to full brightness. */
+    fun setScale(floorDb: Float, rangeDb: Float) {
+        synchronized(lock) {
+            this.floorDb = floorDb
+            this.rangeDb = rangeDb
+            for (i in levels.indices) pixels[i] = colourFor(levels[i])
+            pendingRows = historyRows
+        }
+        invalidate()
+    }
+
+    private fun colourFor(db: Float) = palette[((db - floorDb) / rangeDb * 255f).toInt().coerceIn(0, 255)]
+
     fun addRow(db: FloatArray) {
         synchronized(lock) {
             if (cols == 0) return
-            var mean = 0f
-            for (i in 0 until cols) mean += db[i]
-            mean /= cols
-            floorDb += (mean - floorDb) * 0.02f
-            val lo = floorDb - 5f
-            val range = 55f
             head = if (head == 0) historyRows - 1 else head - 1
             val offset = head * cols
             for (i in 0 until cols) {
-                val v = ((db[i] - lo) / range * 255f).toInt().coerceIn(0, 255)
-                pixels[offset + i] = palette[v]
+                levels[offset + i] = db[i]
+                pixels[offset + i] = colourFor(db[i])
             }
             if (pendingRows < historyRows) pendingRows++
         }

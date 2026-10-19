@@ -2,6 +2,7 @@ package com.example.ultrasound
 
 import android.Manifest
 import android.app.Activity
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
@@ -21,7 +22,12 @@ class MainActivity : Activity(), AudioEngine.Listener {
     private lateinit var shiftSeek: SeekBar
     private lateinit var volumeLabel: TextView
     private lateinit var volumeSeek: SeekBar
+    private lateinit var floorLabel: TextView
+    private lateinit var floorSeek: SeekBar
+    private lateinit var rangeLabel: TextView
+    private lateinit var rangeSeek: SeekBar
     private lateinit var engine: AudioEngine
+    private lateinit var prefs: SharedPreferences
 
     /** Shift slider resolution. */
     private val shiftStepHz = 100
@@ -46,29 +52,32 @@ class MainActivity : Activity(), AudioEngine.Listener {
         shiftSeek = findViewById(R.id.shiftSeek)
         volumeLabel = findViewById(R.id.volumeLabel)
         volumeSeek = findViewById(R.id.volumeSeek)
+        floorLabel = findViewById(R.id.floorLabel)
+        floorSeek = findViewById(R.id.floorSeek)
+        rangeLabel = findViewById(R.id.rangeLabel)
+        rangeSeek = findViewById(R.id.rangeSeek)
 
+        prefs = getSharedPreferences("settings", MODE_PRIVATE)
         engine = AudioEngine(this, waterfall, this)
 
         listenSwitch.setOnCheckedChangeListener { _, checked ->
             engine.listening = checked
             updateMarker()
         }
-        shiftSeek.setOnSeekBarChangeListener(object : SimpleSeekListener() {
-            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                engine.shiftHz = progress * shiftStepHz.toFloat()
-                shiftLabel.text = getString(R.string.shift_label, engine.shiftHz / 1000f)
-                updateMarker()
-            }
-        })
-        volumeSeek.setOnSeekBarChangeListener(object : SimpleSeekListener() {
-            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                engine.gainDb = progress.toFloat()
-                volumeLabel.text = getString(R.string.volume_label, progress)
-            }
-        })
-        volumeLabel.text = getString(R.string.volume_label, volumeSeek.progress)
-        engine.gainDb = volumeSeek.progress.toFloat()
-        shiftLabel.text = getString(R.string.shift_label, engine.shiftHz / 1000f)
+        shiftSeek.max = 1000 // Real limit is set once the sample rate is known.
+        shiftSeek.progress = (prefs.getFloat(KEY_SHIFT, 20_000f) / shiftStepHz).toInt()
+        shiftSeek.bind { progress ->
+            engine.shiftHz = progress * shiftStepHz.toFloat()
+            shiftLabel.text = getString(R.string.shift_label, engine.shiftHz / 1000f)
+            updateMarker()
+        }
+        volumeSeek.bind(KEY_VOLUME, 20) { progress ->
+            engine.gainDb = progress.toFloat()
+            volumeLabel.text = getString(R.string.volume_label, progress)
+        }
+        // Floor slider spans −180…−40 dBFS; range slider 20…100 dB.
+        floorSeek.bind(KEY_FLOOR, 50) { updateScale() }
+        rangeSeek.bind(KEY_RANGE, 40) { updateScale() }
         peakText.setOnClickListener { if (!hasMicPermission()) requestMic() }
     }
 
@@ -79,6 +88,7 @@ class MainActivity : Activity(), AudioEngine.Listener {
 
     override fun onStop() {
         engine.stop()
+        prefs.edit().putFloat(KEY_SHIFT, engine.shiftHz).apply()
         super.onStop()
     }
 
@@ -92,6 +102,28 @@ class MainActivity : Activity(), AudioEngine.Listener {
         if (requestCode != REQ_MIC) return
         if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) engine.start()
         else peakText.setText(R.string.permission_needed)
+    }
+
+    private fun updateScale() {
+        val floor = floorSeek.progress - 180
+        val range = rangeSeek.progress + 20
+        floorLabel.text = getString(R.string.floor_label, floor)
+        rangeLabel.text = getString(R.string.range_label, range)
+        waterfall.setScale(floor.toFloat(), range.toFloat())
+        engine.detectFloorDb = floor.toFloat()
+    }
+
+    /** Wires a slider to [onChange], restoring and saving its position under [key] if given. */
+    private fun SeekBar.bind(key: String? = null, default: Int = 0, onChange: (Int) -> Unit) {
+        if (key != null) progress = prefs.getInt(key, default)
+        setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) = onChange(progress)
+            override fun onStartTrackingTouch(seekBar: SeekBar) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar) {
+                if (key != null) prefs.edit().putInt(key, seekBar.progress).apply()
+            }
+        })
+        onChange(progress)
     }
 
     private fun updateMarker() {
@@ -110,8 +142,8 @@ class MainActivity : Activity(), AudioEngine.Listener {
         shiftSeek.progress = (wanted.coerceAtMost(nyquist - 2_000)) / shiftStepHz
     }
 
-    override fun onPeak(freqHz: Float?, snrDb: Float) = runOnUiThread {
-        peakText.text = if (freqHz != null) getString(R.string.peak_detected, freqHz / 1000f, snrDb)
+    override fun onPeak(freqHz: Float?, levelDb: Float) = runOnUiThread {
+        peakText.text = if (freqHz != null) getString(R.string.peak_detected, freqHz / 1000f, levelDb)
         else getString(R.string.peak_none)
     }
 
@@ -119,12 +151,11 @@ class MainActivity : Activity(), AudioEngine.Listener {
         peakText.text = message
     }
 
-    private abstract class SimpleSeekListener : SeekBar.OnSeekBarChangeListener {
-        override fun onStartTrackingTouch(seekBar: SeekBar) {}
-        override fun onStopTrackingTouch(seekBar: SeekBar) {}
-    }
-
     private companion object {
         const val REQ_MIC = 1
+        const val KEY_SHIFT = "shift_hz"
+        const val KEY_VOLUME = "volume_db"
+        const val KEY_FLOOR = "floor"
+        const val KEY_RANGE = "range"
     }
 }

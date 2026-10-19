@@ -36,28 +36,80 @@
         android:text="@string/listen"
         android:textAppearance="@android:style/TextAppearance.DeviceDefault.Medium" />
 
-    <TextView
-        android:id="@+id/shiftLabel"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp" />
+        android:layout_height="44dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
 
-    <SeekBar
-        android:id="@+id/shiftSeek"
-        android:layout_width="match_parent"
-        android:layout_height="48dp" />
+        <TextView
+            android:id="@+id/shiftLabel"
+            android:layout_width="150dp"
+            android:layout_height="wrap_content" />
 
-    <TextView
-        android:id="@+id/volumeLabel"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        <SeekBar
+            android:id="@+id/shiftSeek"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:max="1000" />
+    </LinearLayout>
 
-    <SeekBar
-        android:id="@+id/volumeSeek"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginBottom="8dp"
-        android:max="60"
-        android:progress="20" />
+        android:layout_height="44dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/volumeLabel"
+            android:layout_width="150dp"
+            android:layout_height="wrap_content" />
+
+        <SeekBar
+            android:id="@+id/volumeSeek"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:max="60" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/floorLabel"
+            android:layout_width="150dp"
+            android:layout_height="wrap_content" />
+
+        <SeekBar
+            android:id="@+id/floorSeek"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:max="140" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/rangeLabel"
+            android:layout_width="150dp"
+            android:layout_height="wrap_content" />
+
+        <SeekBar
+            android:id="@+id/rangeSeek"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:max="80" />
+    </LinearLayout>
 
 </LinearLayout>

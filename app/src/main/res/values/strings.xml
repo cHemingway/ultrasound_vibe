@@ -2,10 +2,12 @@
 <resources>
     <string name="app_name">Ultrasound</string>
     <string name="listen">Listen (headphones)</string>
-    <string name="shift_label">Pitch shift: −%1$.1f kHz</string>
-    <string name="volume_label">Volume: +%1$d dB</string>
+    <string name="shift_label">Shift −%1$.1f kHz</string>
+    <string name="volume_label">Volume +%1$d dB</string>
+    <string name="floor_label">Floor %1$d dBFS</string>
+    <string name="range_label">Range %1$d dB</string>
     <string name="mic_info">Mic %1$d kHz · showing %2$d–%3$d kHz</string>
-    <string name="peak_detected">Ultrasound: %1$.1f kHz (%2$+.0f dB)</string>
+    <string name="peak_detected">Ultrasound: %1$.1f kHz (%2$.0f dBFS)</string>
     <string name="peak_none">No ultrasound detected</string>
     <string name="no_ultrasound_rate">Mic only supports %1$d kHz — no ultrasound range available</string>
     <string name="permission_needed">Microphone permission is required. Tap to grant.</string>
